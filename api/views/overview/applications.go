@@ -45,14 +45,14 @@ type ApplicationParam struct {
 	Chart  *timeseries.TimeSeries `json:"chart"`
 }
 
+func isListed(app *model.Application) bool {
+	return app.IsK8s() || app.Id.Kind == model.ApplicationKindNomadJobGroup || !app.IsStandalone()
+}
+
 func renderApplications(w *model.World) []*ApplicationStatus {
 	var res []*ApplicationStatus
 	for _, app := range w.Applications {
-		switch {
-		case app.IsK8s():
-		case app.Id.Kind == model.ApplicationKindNomadJobGroup:
-		case !app.IsStandalone():
-		default:
+		if !isListed(app) {
 			continue
 		}
 

@@ -28,6 +28,8 @@ type Logs struct {
 	Entries []LogEntry   `json:"entries"`
 	Suggest []string     `json:"suggest"`
 	MaxTs   string       `json:"max_ts"` // string because in JS: 1756993779510773600 === 1756993779510773500
+
+	Applications []ApplicationRef `json:"applications"`
 }
 
 type LogEntry struct {
@@ -49,6 +51,7 @@ type LogsQuery struct {
 	Limit   int                    `json:"limit"`
 	Suggest *string                `json:"suggest,omitempty"`
 	Since   string                 `json:"since"`
+	Apps    *AppFilter             `json:"apps"`
 }
 
 func renderLogs(ctx context.Context, chs clickhouse.Clients, w *model.World, query string) *Logs {
@@ -64,6 +67,7 @@ func renderLogs(ctx context.Context, chs clickhouse.Clients, w *model.World, que
 		return v
 	}
 
+	v.Applications = applicationRefs(w)
 	var q LogsQuery
 	if query != "" {
 		if err := json.Unmarshal([]byte(query), &q); err != nil {
@@ -113,6 +117,21 @@ func renderLogs(ctx context.Context, chs clickhouse.Clients, w *model.World, que
 	for _, ch := range chs.Clients {
 		if !clusterFilter.Matches(ch.Project().Name) {
 			continue
+		}
+		if q.Apps.active() {
+			var otelServices []string
+			if q.Otel {
+				otelServices, _, err = ch.GetLogSources(ctx, w.Ctx.From)
+				if err != nil {
+					klog.Errorln(err)
+					v.Error = fmt.Sprintf("Clickhouse error: %s", err)
+					return v
+				}
+			}
+			lq.Services = q.Apps.logServices(w, ch.ClusterId(), otelServices, q.Agent, q.Otel)
+			if len(lq.Services) == 0 {
+				continue
+			}
 		}
 		if q.Suggest != nil {
 			items, err = ch.GetLogFilters(ctx, lq, *q.Suggest)

@@ -16,6 +16,16 @@
                 <OpenTelemetryIntegration small color="primary">Integrate OpenTelemetry</OpenTelemetryIntegration>
             </div>
 
+            <ApplicationFilter
+                v-if="view.applications"
+                :applications="view.applications"
+                :persist="false"
+                :value="query.apps"
+                hideSearch
+                @input="setApps"
+                class="my-3"
+            />
+
             <v-alert v-if="view.error" color="error" icon="mdi-alert-octagon-outline" outlined text class="mt-2">
                 {{ view.error }}
             </v-alert>
@@ -396,9 +406,10 @@ import Heatmap from '../components/Heatmap.vue';
 import TracingTrace from '../components/TracingTrace.vue';
 import FlameGraph from '../components/FlameGraph.vue';
 import OpenTelemetryIntegration from '@/views/OpenTelemetryIntegration.vue';
+import ApplicationFilter from '@/components/ApplicationFilter.vue';
 
 export default {
-    components: { Views, OpenTelemetryIntegration, FlameGraph, TracingTrace, Heatmap },
+    components: { Views, OpenTelemetryIntegration, FlameGraph, TracingTrace, Heatmap, ApplicationFilter },
 
     data() {
         return {
@@ -535,6 +546,9 @@ export default {
         },
         push(to) {
             this.$router.push(to).catch((err) => err);
+        },
+        setApps(apps) {
+            this.push(this.setQuery({ ...this.query, apps }, this.$route.query.from, this.$route.query.to));
         },
         setQuery(q, from, to) {
             const query = q ? JSON.stringify(q) : undefined;

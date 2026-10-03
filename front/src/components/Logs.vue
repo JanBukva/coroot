@@ -9,6 +9,14 @@
             </v-alert>
 
             <v-card outlined class="px-4 mb-2" :class="showSources ? 'py-2' : 'pt-2 pb-4'">
+                <ApplicationFilter
+                    v-if="appFilter && view.applications"
+                    :applications="view.applications"
+                    :persist="false"
+                    v-model="query.apps"
+                    hideSearch
+                    class="mb-2"
+                />
                 <div class="subtitle-1">Query:</div>
                 <div class="d-flex flex-wrap flex-md-nowrap gap-2">
                     <QueryBuilder
@@ -122,11 +130,13 @@ import Chart from '@/components/Chart.vue';
 import LogEntry from '@/components/LogEntry.vue';
 import InlineSelect from '@/components/InlineSelect.vue';
 import LogSearchButtons from '@/components/LogSearchButtons.vue';
+import ApplicationFilter from '@/components/ApplicationFilter.vue';
 
 export default {
-    components: { LogSearchButtons, InlineSelect, LogEntry, Chart, QueryBuilder },
+    components: { LogSearchButtons, InlineSelect, LogEntry, Chart, QueryBuilder, ApplicationFilter },
 
     props: {
+        appFilter: Boolean,
         showSources: {
             type: Boolean,
             default: true,
@@ -275,6 +285,7 @@ export default {
                 otel: q.otel !== undefined ? q.otel : true,
                 filters: q.filters || [],
                 limit: q.limit || 100,
+                apps: q.apps,
             };
         },
         setQuery(push) {

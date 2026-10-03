@@ -686,6 +686,7 @@ type SpanQuery struct {
 	Limit int
 
 	Filters          []SpanFilter
+	ServiceNames     []string
 	ExcludePeerAddrs []string
 
 	Diff bool
@@ -822,6 +823,10 @@ func (q *SpanQuery) Filter() ([]string, []any) {
 		expr = fmt.Sprintf(expr, f.Field, name)
 		filter = append(filter, expr)
 		args = append(args, clickhouse.Named(name, f.Value))
+	}
+	if len(q.ServiceNames) > 0 {
+		filter = append(filter, "ServiceName IN (@serviceNames)")
+		args = append(args, clickhouse.Named("serviceNames", q.ServiceNames))
 	}
 	return filter, args
 }

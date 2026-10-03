@@ -1,6 +1,6 @@
 <template>
     <div class="d-flex flex-column flex-sm-row flex-wrap flex-md-nowrap" style="gap: 12px">
-        <div>
+        <div v-if="!hideSearch">
             <v-text-field
                 ref="search"
                 v-model="searchString"
@@ -105,6 +105,12 @@ export default {
         autoSelectNamespaceThreshold: Number,
         highlightSearch: Boolean,
         searchInfo: String,
+        persist: {
+            type: Boolean,
+            default: true,
+        },
+        hideSearch: Boolean,
+        value: Object,
     },
 
     data() {
@@ -119,7 +125,7 @@ export default {
     mounted() {
         this.load();
         this.$events.watch(this, this.load, 'refresh');
-        if (this.$route.query.search) {
+        if (this.$route.query.search && !this.hideSearch) {
             this.searchString = this.$route.query.search;
         }
     },
@@ -186,7 +192,7 @@ export default {
     watch: {
         filter: {
             handler() {
-                if (!this.selectedCategories.length && this.categories.length) {
+                if (this.persist && !this.selectedCategories.length && this.categories.length) {
                     this.selectedCategories.push(this.categories[0]);
                     this.save();
                     return;
@@ -218,6 +224,7 @@ export default {
         selectedNamespaces() {
             this.save();
         },
+        value: 'load',
     },
 
     methods: {
@@ -236,12 +243,20 @@ export default {
         load() {
             const projectId = this.$route.params.projectId;
             let saved = this.$storage.local(storageKey) || {};
-            saved = saved[projectId] || {};
+            saved = this.persist ? saved[projectId] || {} : JSON.parse(JSON.stringify(this.value || {}));
             this.selectedCategories = saved.categories || [];
             this.selectedNamespaces = saved.namespaces || [];
             this.autoSelectNamespace = !!this.autoSelectNamespaceThreshold && !this.selectedNamespaces.length;
         },
         save() {
+            if (!this.persist) {
+                const empty = !this.selectedCategories.length && !this.selectedNamespaces.length;
+                const apps = empty ? undefined : { categories: [...this.selectedCategories], namespaces: [...this.selectedNamespaces] };
+                if (JSON.stringify(apps) !== JSON.stringify(this.value)) {
+                    this.$emit('input', apps);
+                }
+                return;
+            }
             const saved = this.$storage.local(storageKey) || {};
             const projectId = this.$route.params.projectId;
             if (!saved[projectId]) {

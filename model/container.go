@@ -117,3 +117,23 @@ func GuessService(services []string, w *World, app *Application) string {
 	}
 	return service
 }
+
+func GuessServices(services []string, w *World, clusterId string) map[ApplicationId]string {
+	res := map[ApplicationId]string{}
+	counts := map[string]int{}
+	for id := range w.Applications {
+		if id.ClusterId != clusterId {
+			continue
+		}
+		if s := guessService(services, id); s != "" {
+			res[id] = s
+			counts[s]++
+		}
+	}
+	for id, s := range res {
+		if counts[s] > 1 {
+			delete(res, id)
+		}
+	}
+	return res
+}

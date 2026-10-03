@@ -3,6 +3,7 @@ package clickhouse
 import (
 	"testing"
 
+	"github.com/ClickHouse/clickhouse-go/v2"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -74,4 +75,11 @@ func TestConvertIntervalToSeconds(t *testing.T) {
 	// Edge cases
 	assert.Equal(t, uint64(0), convertIntervalToSeconds(10, "INVALID"))
 	assert.Equal(t, uint64(0), convertIntervalToSeconds(0, "DAY"))
+}
+
+func TestSpanQueryServiceNames(t *testing.T) {
+	q := SpanQuery{ServiceNames: []string{"cart", "checkout"}}
+	filter, args := q.Filter()
+	assert.Equal(t, []string{"ServiceName IN (@serviceNames)"}, filter)
+	assert.Equal(t, []any{clickhouse.Named("serviceNames", q.ServiceNames)}, args)
 }

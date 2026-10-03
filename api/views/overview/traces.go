@@ -33,6 +33,8 @@ type Traces struct {
 	AttrStats []model.TraceSpanAttrStats `json:"attr_stats"`
 	Errors    []model.TraceErrorsStat    `json:"errors"`
 	Latency   *model.Profile             `json:"latency"`
+
+	Applications []ApplicationRef `json:"applications"`
 }
 
 type Span struct {
@@ -62,6 +64,7 @@ type Query struct {
 	TsTo    timeseries.Time `json:"ts_to"`
 	DurFrom string          `json:"dur_from"`
 	DurTo   string          `json:"dur_to"`
+	Apps    *AppFilter      `json:"apps"`
 
 	TraceId    string   `json:"trace_id"`
 	Filters    []Filter `json:"filters"`
@@ -92,6 +95,7 @@ func RenderTraces(ctx context.Context, chs clickhouse.Clients, w *model.World, q
 		return res
 	}
 
+	res.Applications = applicationRefs(w)
 	q := parseQuery(query, w.Ctx)
 
 	sq := clickhouse.SpanQuery{Ctx: w.Ctx}
@@ -104,11 +108,31 @@ func RenderTraces(ctx context.Context, chs clickhouse.Clients, w *model.World, q
 		sq.AddFilter("SpanName", "!~", "GET /(health[z]*|metrics|debug/.+|actuator/.+)")
 	}
 
+	var appServices map[string][]string
+	if q.Apps.active() && q.TraceId == "" {
+		appServices = map[string][]string{}
+		for _, ch := range chs.Clients {
+			services, err := ch.GetServicesFromTraces(ctx, w.Ctx.From)
+			if err != nil {
+				klog.Errorln(err)
+				res.Error = fmt.Sprintf("Clickhouse error: %s", err)
+				return res
+			}
+			appServices[ch.ClusterId()] = q.Apps.traceServices(w, ch.ClusterId(), services)
+		}
+	}
+
 	byLe := map[float32]*timeseries.Aggregate{}
 
 	for _, ch := range chs.Clients {
 		if !q.IncludeAux {
 			sq.ExcludePeerAddrs = getMonitoringAndControlPlanePodIps(w, ch.ClusterId())
+		}
+		if appServices != nil {
+			sq.ServiceNames = appServices[ch.ClusterId()]
+			if len(sq.ServiceNames) == 0 {
+				continue
+			}
 		}
 		histogram, err := ch.GetRootSpansHistogram(ctx, sq)
 		if err != nil {
@@ -190,6 +214,12 @@ func RenderTraces(ctx context.Context, chs clickhouse.Clients, w *model.World, q
 	for _, ch := range chs.Clients {
 		if !q.IncludeAux {
 			sq.ExcludePeerAddrs = getMonitoringAndControlPlanePodIps(w, ch.ClusterId())
+		}
+		if appServices != nil {
+			sq.ServiceNames = appServices[ch.ClusterId()]
+			if len(sq.ServiceNames) == 0 {
+				continue
+			}
 		}
 		switch {
 		case q.TraceId != "":

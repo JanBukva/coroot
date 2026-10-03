@@ -1,6 +1,6 @@
 <template>
     <Views :error="error" :loading="loading">
-        <Logs @loading="setLoading" @error="setError" />
+        <Logs appFilter @loading="setLoading" @error="setError" />
     </Views>
 </template>
 
